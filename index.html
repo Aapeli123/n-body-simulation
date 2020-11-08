@@ -4,17 +4,21 @@
 			<title> N-Body Simulation </title>
 			<style>
 					body {
-						text-align: center
+						text-align: center;
+						font-family: Arial, Helvetica, sans-serif;
 					}
 			</style>
 		</head>
 		<body>
+			<h1>N:n kappaleen simulaatio</h1>
 			<canvas width="1200" height="900" id="canvas"></canvas>
 			<br>
-			<h2>Size:</h2>
+			<h2>Uuden kappaleen koko:</h2>
 			<input id="size" type="number" min=1 max="100" value="50"> </input>
-			<h2>Mass:</h2>
+			<h2>Massa:</h2>
 			<input id="size" type="number" min=1 max="100" value="50"> </input>
+			<button onclick="drawArrows = !drawArrows">Toggle vectors</button>
+			<p>Klikkailemalla lisäät uusia kappaleita</p>
 			<script src="./main.js"> </script>
 		</body>
 </html>
