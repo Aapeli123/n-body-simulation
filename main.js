@@ -4,10 +4,18 @@ const ctx = canvas.getContext('2d');
 const sizeSlider = document.getElementById("size")
 let bgColor = "black";
 
-let randomColor = () => Math.floor(Math.random()*16777215).toString(16);
+
+const gC = 6.674255 * (10**-11);
+
+const randomColor = () => Math.floor(Math.random()*16777215).toString(16);
 
 
 const vAdd = (vec1, vec2) => new Vector2(vec1.x + vec2.x, vec1.y + vec2.y);
+const vMult = (n, vec) => new Vector2(n * vec.x, n * vec.y);
+
+
+const vLen = (vec) => Math.sqrt(vec.x**2 + vec.y**2);
+const unitV = (vec) => vMult(1/vLen(vec),vec);
 
 
 class Vector2 {
@@ -15,25 +23,36 @@ class Vector2 {
 		this.x = x;
 		this.y = y;
 	}
-	
 }
+
 
 class Body {
 	acceleration = new Vector2(0,0);
 	velocity = new Vector2(0,0);
 	position = new Vector2(0,0);
-	constructor(x,y, Size) {
+	affectingForces = []
+	constructor(x,y, Size, Mass) {
 		this.position = new Vector2(x,y);
 		this.size = Size;
 		this.color = randomColor();
+		this.mass = Mass;
 	}
 
 	calculateForces() {
-
+		this.affectingForces = [];
+		// F = newtonin painovoimalaki
+		// a = F/m
+		// velocity = vAdd(a, velocity);
 	}
 
 	calculatePullTo(other) {
-
+		let m1 = this.mass;
+		let m2 = other.mass;
+		let r = vAdd(this.position, vMult(-1, other.position));
+		let rHat = unitV(r);
+		let rLis = vLen(r);
+		let multiplier = -gC*((m1*m2)/(rLen**2));
+		return vMult(multiplier, rHat);
 	}
 
 
@@ -51,7 +70,8 @@ let bodies = []; // Lista koostuen kaikista piirrettävistä objekteista
 
 const addNewObject = (x,y, size) => {
 	bodies.push(new Body(x,y,size));
-} 
+};
+
 
 const draw = () => {
 	ctx.clearRect(0,0,1200, 900);
@@ -70,7 +90,7 @@ canvas.onclick = (e) => {
 	let x = e.clientX - rect.left;
 	let y = e.clientY - rect.top;
 	addNewObject(x,y,parseInt(sizeSlider.value));
-	console.log(x,y)
+	// console.log(x,y)
 }
 
 const frameLogic = () => {
