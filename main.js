@@ -109,7 +109,16 @@ class Body {
 			this.velocity = newVel
 
 			this.mass += other.mass;
-			this.size += other.size;
+			
+			
+			// Ratkaise pinta alat ja laske niiden kautta uuden kappaleen pinta-ala ja säde
+			let area1 = Math.PI * this.size**2;
+			let area2 = Math.PI * other.size**2;
+			let newArea  = area1 + area2;
+			let newSize = Math.sqrt(newArea/Math.PI); // jaettuna kahdelle osa materiaalista katoaa
+			this.size = newSize;
+
+			
 			bodies.splice(bIndex, 1);
 			console.log(bodies)
 		}
