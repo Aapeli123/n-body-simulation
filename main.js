@@ -1,8 +1,18 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext('2d');
 
-const sizeSlider = document.getElementById("size")
-let bgColor = "black";
+const sizeSlider = document.getElementById("size");
+const massSlider = document.getElementById("mass");
+
+const bg = document.querySelector('#bg');
+
+let bgColor = "#000000";
+let pathColor = "#ffffff";
+
+let pathLen = 500;
+let showTrails = true;
+let paused = false;
+
 
 
 const gC = 6.674255 * (10**-11);
@@ -29,13 +39,14 @@ let placeholder = {
 	x: 5000 , y: 5000
 };
 
-let drawArrows = false;
+let drawArrows = true;
 
 class Body {
 	acceleration = new Vector2(0,0);
 	velocity = new Vector2(0,0);
 	position = new Vector2(0,0);
 	affectingForces = []
+	trail = [];
 	constructor(x,y, Size, Mass, initialVel) {
 		this.velocity = initialVel;
 		this.position = new Vector2(x,y);
@@ -55,19 +66,27 @@ class Body {
 	calculateForces() {
 		this.affectingForces = bodies.filter(b => b != this).map(this.calculatePullTo);
 		if(this.affectingForces.length == 0) {
-			return;
+			this.acceleration = new Vector2(0,0);
+			return
 		}
 		let sF = this.affectingForces.reduce((prev, curr) => vAdd(curr, prev));
 		this.acceleration = vMult(1/this.mass,sF);
 	}
 
 	applyAcceleration() {
-		this.velocity = vAdd(this.velocity, vMult(10000000,this.acceleration));
+		this.velocity = vAdd(this.velocity, vMult(1/100000000000,this.acceleration)); // Multiply by low number so the bodies don't go out of bounds
 	}
 
 	applyVelocity() {
 		this.position = vAdd(this.position, this.velocity);
-
+		if(showTrails) {
+			this.trail.push(this.position);
+			if(this.trail.length > pathLen) {
+				this.trail.shift();
+			}
+		} else {
+			this.trail = [];
+		}
 
 	}
 
@@ -76,22 +95,40 @@ class Body {
 	checkForCollision(other) {
 		let difference = vAdd(other.position, vMult(-1, this.position));
 		let len = vLen(difference);
-		return len < this.size*2;
+		if(len < this.size + other.size) {
+			let bIndex = bodies.findIndex(e => e == other);
+			let otherMass = other.mass;
+			if(otherMass > this.mass) {
+				return false
+			}
+			let p1 = vMult(this.mass, this.velocity);
+			let p2 = vMult(otherMass, other.velocity);
+			let pSum = vAdd(p1, p2);
+			let massSum = this.mass + other.mass;
+			let newVel = vMult(1/massSum,pSum)
+			this.velocity = newVel
+
+			this.mass += other.mass;
+			this.size += other.size;
+			bodies.splice(bIndex, 1);
+			console.log(bodies)
+		}
+		return len < this.size + other.size;
 
 	}
 
 	checkCollisions() {
 		bodies.filter(b=>b != this).filter(this.checkForCollision).forEach((body) => {
 			// TODO Collision logic...
-			console.log("Collision");
+			console.log(this, "collided with", body);
 		})
 	}
 
 	simulate() {
-		this.checkCollisions();
 		this.calculateForces();
 		this.applyAcceleration();
 		this.applyVelocity();
+		this.checkCollisions();
 	}
 
 
@@ -115,15 +152,27 @@ class Body {
 		ctx.stroke();
 		ctx.fill();
 		if(drawArrows) {
-			let arrowCoords = vAdd(vMult(100,this.velocity), this.position);
+			let arrowCoords = vAdd(vMult(70,this.velocity), this.position);
 			canvas_arrow(this.position.x, this.position.y, arrowCoords.x, arrowCoords.y);
 		}
+	}
+
+
+	drawTrail() {
+		ctx.beginPath();
+		ctx.strokeStyle =  "#"+ this.color;
+		this.trail.forEach(p => {
+			ctx.lineTo(p.x, p.y);
+			ctx.moveTo(p.x, p.y);
+		})
+		ctx.stroke();
 	}
 }
 let bodies = []; // Lista koostuen kaikista piirrettävistä objekteista
 let placeholders = [];
+
 const addNewObject = (x,y, size, initialVel) => {
-	bodies.push(new Body(x,y,size, 1*10*2900, initialVel));
+	bodies.push(new Body(x,y,size, parseFloat(massSlider.value)*10**24, initialVel));
 };
 
 
@@ -144,10 +193,22 @@ function canvas_arrow(fromx, fromy, tox, toy) {
 
 
 const draw = () => {
-	ctx.clearRect(0,0,1200, 900);
+	ctx.clearRect(0,0,2000, 1000);
 	ctx.fillStyle = bgColor;
-	ctx.fillRect(0,0,1200, 900);
+	ctx.drawImage(bg,0,0,2000, 1000);
+	bodies.forEach(obj => obj.drawTrail());
 	bodies.forEach(obj => obj.drawObject());
+
+
+	ctx.font = "30px Arial";
+	ctx.fillStyle = "#FFFFFF";
+	ctx.fillText(`FPS: ${fps.toPrecision(2)}`, 100, 100);
+	if(paused) {
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "#FFFFFF";
+		ctx.fillText("Paused", 25, 50);
+	}
+
 
 	if(mouseDown) {
 		ctx.beginPath();
@@ -162,13 +223,15 @@ const draw = () => {
 		ctx.lineWidth = 3;
 		ctx.stroke();
 		ctx.beginPath();
-
 		canvas_arrow(startX,startY, placeholder.x, placeholder.y);
 	}
 };
 
 const update = () => {
 	bodies.forEach(b => b.simulate());
+	bodies = bodies.filter(b => {
+		return !(b.x < -1000 || b.y < -1000 || b.x > 2000 || b.y > 2000); 
+	});
 };
 
 canvas.onclick = (e) => {
@@ -212,10 +275,21 @@ canvas.onmousedown = (e) => {
 	startY = y;
 };
 
+const exportSimulation = () => btoa(JSON.stringify());
 
-const frameLogic = () => {
-				update();
-				draw();
-				requestAnimationFrame(frameLogic);
+let prevTime = performance.now();
+let fps = 0;
+const frameLogic = (t) => {
+	let time = performance.now();
+	let dt = time - prevTime; // Time since last frame
+	fps = 1000/dt;
+	if(!paused) {
+		update();
+	}
+	draw();
+
+
+	prevTime = time;
+	requestAnimationFrame(frameLogic);
 };
-window.requestAnimationFrame(frameLogic)
+window.requestAnimationFrame(frameLogic);
