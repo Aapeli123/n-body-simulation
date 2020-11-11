@@ -48,11 +48,23 @@ class Body {
 	affectingForces = []
 	trail = [];
 	constructor(x,y, Size, Mass, initialVel) {
-		this.velocity = initialVel;
-		this.position = new Vector2(x,y);
-		this.size = Size;
-		this.color = randomColor();
-		this.mass = Mass;
+		if(typeof x == "object") { // Tän ei pitäis olla näin, mut javascript ei tue operator overloadingii...
+			let obj = x;
+			this.position = obj.position;
+			this.velocity = obj.velocity;
+			this.acceleration = obj.acceleration;
+			this.size = obj.size; 
+			this.mass = obj.mass;
+			this.affectingforces = obj.affectingForces
+			this.color = obj.color;
+		} else {
+			this.velocity = initialVel;
+			this.position = new Vector2(x,y);
+			this.size = Size;
+			this.color = randomColor();
+			this.mass = Mass;
+		}
+
 		this.calculateForces = this.calculateForces.bind(this);
 		this.calculatePullTo = this.calculatePullTo.bind(this);
 		this.simulate = this.simulate.bind(this);
@@ -62,7 +74,6 @@ class Body {
 		this.checkForCollision = this.checkForCollision.bind(this);
 		this.checkCollisions = this.checkCollisions.bind(this);
 	}
-
 	calculateForces() {
 		this.affectingForces = bodies.filter(b => b != this).map(this.calculatePullTo);
 		if(this.affectingForces.length == 0) {
@@ -284,8 +295,10 @@ canvas.onmousedown = (e) => {
 	startY = y;
 };
 
-const exportSimulation = () => btoa(JSON.stringify());
-
+const exportSimulation = () => btoa(JSON.stringify(bodies.map(m => {m.trail = [];return m})));
+const importSimulation = (simStr) => {
+	bodies = JSON.parse(atob(simStr)).map(o => new Body(o));
+}
 let prevTime = performance.now();
 let fps = 0;
 const frameLogic = (t) => {
