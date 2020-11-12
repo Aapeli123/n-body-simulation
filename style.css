@@ -1,0 +1,28 @@
+body {
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+    color: white;
+    background-color: black;
+}
+
+/* Create two equal columns that floats next to each other */
+.column {
+    float: left;
+    padding: 10px;
+}
+.left {
+    width: 80%;
+}
+.right {
+    width: 18%;
+}
+
+.selected {
+    background-color: rgb(0, 92, 20);
+}
+  /* Clear floats after the columns */
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}

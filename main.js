@@ -12,20 +12,14 @@ let pathColor = "#ffffff";
 let pathLen = 500;
 let showTrails = true;
 let paused = false;
+let drawArrows = true;
+let showBg = true;
 
-
+let bodies = []; // Lista koostuen kaikista piirrettävistä objekteista
 
 const gC = 6.674255 * (10**-11);
 
 const randomColor = () => Math.floor(Math.random()*16777215).toString(16);
-
-
-const vAdd = (vec1, vec2) => new Vector2(vec1.x + vec2.x, vec1.y + vec2.y);
-const vMult = (n, vec) => new Vector2(n * vec.x, n * vec.y);
-
-
-const vLen = (vec) => Math.sqrt(vec.x**2 + vec.y**2);
-const unitV = (vec) => vMult(1/vLen(vec),vec);
 
 
 class Vector2 {
@@ -34,12 +28,21 @@ class Vector2 {
 		this.y = y;
 	}
 }
+const vAdd = (vec1, vec2) => new Vector2(vec1.x + vec2.x, vec1.y + vec2.y);
+const vMult = (n, vec) => new Vector2(n * vec.x, n * vec.y);
+const vLen = (vec) => Math.sqrt(vec.x**2 + vec.y**2);
+const unitV = (vec) => vMult(1/vLen(vec),vec);
+
+
 
 let placeholder = {
 	x: 5000 , y: 5000
 };
 
-let drawArrows = true;
+const select = (name) => {
+	selected = name;
+}
+
 
 class Body {
 	acceleration = new Vector2(0,0);
@@ -47,7 +50,7 @@ class Body {
 	position = new Vector2(0,0);
 	affectingForces = []
 	trail = [];
-	constructor(x,y, Size, Mass, initialVel) {
+	constructor(x,y, Size, Mass, initialVel, color) {
 		if(typeof x == "object") { // Tän ei pitäis olla näin, mut javascript ei tue operator overloadingii...
 			let obj = x;
 			this.position = obj.position;
@@ -55,13 +58,13 @@ class Body {
 			this.acceleration = obj.acceleration;
 			this.size = obj.size; 
 			this.mass = obj.mass;
-			this.affectingforces = obj.affectingForces
+			this.affectingForces = obj.affectingForces
 			this.color = obj.color;
 		} else {
 			this.velocity = initialVel;
 			this.position = new Vector2(x,y);
 			this.size = Size;
-			this.color = randomColor();
+			this.color = color;
 			this.mass = Mass;
 		}
 
@@ -126,7 +129,8 @@ class Body {
 			let area1 = Math.PI * this.size**2;
 			let area2 = Math.PI * other.size**2;
 			let newArea  = area1 + area2;
-			let newSize = Math.sqrt(newArea/Math.PI); // jaettuna kahdelle osa materiaalista katoaa
+			
+			let newSize = Math.cbrt(this.size**3 + other.size**3) // Math.sqrt(newArea/Math.PI); // jaettuna kahdelle osa materiaalista katoaa
 			this.size = newSize;
 
 			
@@ -188,15 +192,28 @@ class Body {
 		ctx.stroke();
 	}
 }
-let bodies = []; // Lista koostuen kaikista piirrettävistä objekteista
-let placeholders = [];
+
+
+const Earth = (x,y, initialVel) => new Body(x,y, 63.71, 5.972*(10**24), initialVel, "0000FF");
+const Moon = (x,y, initialVel) => new Body(x,y, 1.737, 7.34767309*(10**22), initialVel, "444444");
+
+let selected = "custom";
+
+let selectable = {
+	"Earth": Earth,
+	"Moon": Moon
+}
 
 const addNewObject = (x,y, size, initialVel) => {
-	bodies.push(new Body(x,y,size, parseFloat(massSlider.value)*10**24, initialVel));
+	if(selected == "custom") {
+		bodies.push(new Body(x,y,size, parseFloat(massSlider.value)*10**24, initialVel, randomColor()));
+	} else {
+		bodies.push(selectable[selected](x,y,initialVel))
+	}
 };
 
 
-function canvas_arrow(fromx, fromy, tox, toy) {
+const canvas_arrow = (fromx, fromy, tox, toy) => {
 	var headlen = 10; // length of head in pixels
 	var dx = tox - fromx;
 	var dy = toy - fromy;
@@ -209,15 +226,37 @@ function canvas_arrow(fromx, fromy, tox, toy) {
 	ctx.moveTo(tox, toy);
 	ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
 	ctx.stroke();
-  }
+}
+
+const drawPlaceholder = (size) => {
+	ctx.beginPath();
+	ctx.arc(placeholder.x, placeholder.y, size, 0, 2 * Math.PI, false);
+	ctx.strokeStyle = "#FFFFFF";
+	ctx.lineWidth = 3;
+	ctx.stroke();
+	ctx.beginPath();
+
+	ctx.arc(startX, startY, size, 0, 2 * Math.PI, false);
+	ctx.strokeStyle = "#FFFFFF";
+	ctx.lineWidth = 3;
+	ctx.stroke();
+	ctx.beginPath();
+	canvas_arrow(startX,startY, placeholder.x, placeholder.y);
+
+}
 
 
 const draw = () => {
 	ctx.clearRect(0,0,2000, 1000);
 	ctx.fillStyle = bgColor;
-	ctx.drawImage(bg,0,0,2000, 1000);
-	bodies.forEach(obj => obj.drawTrail());
-	bodies.forEach(obj => obj.drawObject());
+	
+	if (showBg) {
+		ctx.drawImage(bg,0,0,2000, 1000);
+	} else {
+		ctx.fillRect(0,0,2000, 1000);
+	}
+
+	bodies.forEach(obj => {obj.drawTrail(); obj.drawObject()});
 
 
 	ctx.font = "30px Arial";
@@ -231,19 +270,11 @@ const draw = () => {
 
 
 	if(mouseDown) {
-		ctx.beginPath();
-		ctx.arc(placeholder.x, placeholder.y, parseInt(sizeSlider.value), 0, 2 * Math.PI, false);
-		ctx.strokeStyle = "#FFFFFF";
-		ctx.lineWidth = 3;
-		ctx.stroke();
-		ctx.beginPath();
-
-		ctx.arc(startX, startY, parseInt(sizeSlider.value), 0, 2 * Math.PI, false);
-		ctx.strokeStyle = "#FFFFFF";
-		ctx.lineWidth = 3;
-		ctx.stroke();
-		ctx.beginPath();
-		canvas_arrow(startX,startY, placeholder.x, placeholder.y);
+		if(selected == "custom") {
+			drawPlaceholder(parseInt(sizeSlider.value));
+		} else {
+			drawPlaceholder(selectable[selected]().size);
+		}
 	}
 };
 
@@ -283,7 +314,7 @@ canvas.onmouseup = (e) => {
 	let dX = startX - x;
 	let dY = startY - y;
 
-	addNewObject(startX,startY,parseInt(sizeSlider.value), vMult(1/250, vMult(-1, new Vector2(dX, dY))));
+	addNewObject(startX,startY,parseInt(sizeSlider.value), vMult(1/100, vMult(-1, new Vector2(dX, dY))));
 };
 
 canvas.onmousedown = (e) => {
@@ -309,9 +340,9 @@ const frameLogic = (t) => {
 		update();
 	}
 	draw();
-
-
 	prevTime = time;
 	requestAnimationFrame(frameLogic);
 };
+
+
 window.requestAnimationFrame(frameLogic);
